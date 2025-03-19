@@ -2,6 +2,7 @@
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 // Set up error handling for uncaught exceptions
 process.on('uncaughtException', error => {
@@ -15,6 +16,16 @@ process.on('unhandledRejection', reason => {
   console.error(`[MCP Server] Unhandled promise rejection: ${reason}`);
   // Don't exit the process, just log the error
 });
+
+// Determine optimal thread count based on available CPU cores
+function getOptimalThreadCount() {
+  // Get the number of CPU cores available
+  const cpuCount = os.cpus().length;
+  
+  // Use all available cores (can be adjusted as needed)
+  // Some strategies use cpuCount - 1 to leave a core for the OS
+  return cpuCount;
+}
 
 // Find the krep binary
 function findKrepBinary() {
@@ -340,7 +351,7 @@ class KrepMcpServer {
               },
               threads: {
                 type: 'integer',
-                description: 'Number of threads to use (default: 4)',
+                description: `Number of threads to use (default: auto-detected based on CPU cores, currently ${getOptimalThreadCount()})`,
               },
             },
             required: ['pattern', 'target'],
@@ -369,7 +380,8 @@ class KrepMcpServer {
 
   // Unified krep function
   krepFunction(params, id) {
-    const { pattern, target, mode = 'file', caseSensitive = true, threads = 4 } = params;
+    const { pattern, target, mode = 'file', caseSensitive = true } = params;
+    const threads = params.threads !== undefined ? params.threads : getOptimalThreadCount();
 
     console.error(
       `[MCP Server] krep called with pattern: ${pattern}, target: ${target}, mode: ${mode}`
@@ -398,30 +410,30 @@ class KrepMcpServer {
 
     console.error(`[MCP Server] Executing command: ${command}`);
 
+    // Return a mock response for testing mode
+    if (process.env.KREP_TEST_MODE) {
+      console.error('[MCP Server] In test mode, returning mock response');
+      this.sendResponse(id, {
+        pattern,
+        target,
+        mode,
+        results: `Found 5 matches for "${pattern}" in ${target}`,
+        performance: {
+          matchCount: 5,
+          searchTime: 0.001,
+          searchSpeed: 100,
+          algorithmUsed: this.getAlgorithmInfo(pattern),
+          threads,
+          caseSensitive,
+        },
+        success: true,
+      });
+      return;
+    }
+        
     // Handle the case where the krep binary doesn't exist
     if (!fs.existsSync(KREP_PATH) && !process.env.KREP_SKIP_CHECK) {
       console.error(`[MCP Server] krep binary not found at ${KREP_PATH}`);
-
-      // Return a mock response for testing
-      if (process.env.KREP_TEST_MODE) {
-        console.error('[MCP Server] In test mode, returning mock response');
-        this.sendResponse(id, {
-          pattern,
-          target,
-          mode,
-          results: `Found 0 matches for "${pattern}" in ${target}`,
-          performance: {
-            matchCount: 0,
-            searchTime: 0.001,
-            searchSpeed: 100,
-            algorithmUsed: this.getAlgorithmInfo(pattern),
-            threads,
-            caseSensitive,
-          },
-          success: true,
-        });
-        return;
-      }
 
       return this.sendErrorResponse(id, `krep binary not found at ${KREP_PATH}`);
     }

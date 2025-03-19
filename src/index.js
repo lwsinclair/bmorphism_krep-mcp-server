@@ -4,9 +4,20 @@ const cors = require('cors');
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+
+// Determine optimal thread count based on available CPU cores
+function getOptimalThreadCount() {
+  // Get the number of CPU cores available
+  const cpuCount = os.cpus().length;
+  
+  // Use all available cores (can be adjusted as needed)
+  // Some strategies use cpuCount - 1 to leave a core for the OS
+  return cpuCount;
+}
 
 // Find the krep binary
 function findKrepBinary() {
@@ -107,7 +118,8 @@ function getAlgorithmInfo(pattern) {
 
 // Search endpoint - search for patterns in files
 app.post('/search', (req, res) => {
-  const { pattern, filePath, caseSensitive = true, threads = 4, countOnly = false } = req.body;
+  const { pattern, filePath, caseSensitive = true, countOnly = false } = req.body;
+  const threads = req.body.threads !== undefined ? req.body.threads : getOptimalThreadCount();
 
   if (!pattern || !filePath) {
     return res.status(400).json({ error: 'Missing required parameters: pattern and path' });
@@ -160,7 +172,8 @@ app.post('/search', (req, res) => {
 
 // Match endpoint - match patterns in strings
 app.post('/match', (req, res) => {
-  const { pattern, text, caseSensitive = true, threads = 4, countOnly = false } = req.body;
+  const { pattern, text, caseSensitive = true, countOnly = false } = req.body;
+  const threads = req.body.threads !== undefined ? req.body.threads : getOptimalThreadCount();
 
   if (!pattern || !text) {
     return res.status(400).json({ error: 'Missing required parameters: pattern and text' });
@@ -222,7 +235,7 @@ app.get('/mcp/search/*', (req, res) => {
   let searchPath = req.params[0] || '';
   const pattern = req.query.pattern || '';
   const caseSensitive = req.query.case !== 'false';
-  const threads = parseInt(req.query.threads || '4');
+  const threads = req.query.threads ? parseInt(req.query.threads) : getOptimalThreadCount();
   const countOnly = req.query.count === 'true';
 
   if (!pattern || !searchPath) {
@@ -301,7 +314,7 @@ app.get('/mcp/match/*', (req, res) => {
   const text = req.params[0] || '';
   const pattern = req.query.pattern || '';
   const caseSensitive = req.query.case !== 'false';
-  const threads = parseInt(req.query.threads || '4');
+  const threads = req.query.threads ? parseInt(req.query.threads) : getOptimalThreadCount();
   const countOnly = req.query.count === 'true';
 
   if (!pattern || !text) {
@@ -621,7 +634,7 @@ if (require.main === module) {
                   searchTime: 0.001,
                   searchSpeed: 100,
                   algorithmUsed: 'Test Algorithm',
-                  threads: 4,
+                  threads: getOptimalThreadCount(),
                   caseSensitive: true,
                 },
                 success: true,
