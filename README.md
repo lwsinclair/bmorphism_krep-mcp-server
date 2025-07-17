@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/mcp-mirror-bmorphism-krep-mcp-server-badge.png)](https://mseep.ai/app/mcp-mirror-bmorphism-krep-mcp-server)
+
 # Krep MCP Server
 
 A high-performance string search utility with MCP (Model Context Protocol) integration for the infinity-topos environment. This is a wrapper around [krep](https://github.com/barton-willis/krep-native), an ultra-fast pattern matching utility that significantly outperforms traditional tools like grep.
